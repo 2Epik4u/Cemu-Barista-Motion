@@ -17,7 +17,6 @@ not affiliated with Nintendo, Barista, or upstream Cemu.
   adapter while the GamePad is connected, so use Ethernet or a second Wi-Fi
   adapter for Internet access.
 - Barista installed and able to connect the GamePad.
-- The normal Cemu build dependencies listed in [BUILD.md](BUILD.md).
 
 Barista's Preview packages can currently be installed with:
 
@@ -29,10 +28,27 @@ Follow Barista's own documentation for supported distributions, pairing, Wi-Fi
 hardware, and package security. Always run the Barista desktop application and
 Cemu as your normal user, not with `sudo`.
 
-## Build this fork
+## Install the AppImage (recommended)
+
+Download the `x86_64.AppImage` file from the
+[latest release](https://github.com/Nerostalgeek/Cemu-Barista-Motion/releases/latest),
+make it executable, and run it:
 
 ```sh
-git clone --recursive YOUR_FORK_URL Cemu-Barista-Motion
+chmod +x Cemu-Barista-Motion-*-x86_64.AppImage
+./Cemu-Barista-Motion-*-x86_64.AppImage
+```
+
+There is nothing else to install for this Cemu fork. Barista remains a separate
+application and must be running with the GamePad connected before Cemu starts.
+
+## Build this fork
+
+Building from source is optional. It requires the normal Cemu build
+dependencies listed in [BUILD.md](BUILD.md).
+
+```sh
+git clone --recursive https://github.com/Nerostalgeek/Cemu-Barista-Motion.git
 cd Cemu-Barista-Motion
 cmake -S . -B build -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
@@ -41,8 +57,7 @@ cmake -S . -B build -G Ninja \
 cmake --build build --parallel
 ```
 
-The binary is written to `bin/Cemu_release`. Replace `YOUR_FORK_URL` with the
-URL of the repository containing this branch.
+The binary is written to `bin/Cemu_release`.
 
 ## Configure Cemu
 
