@@ -73,16 +73,15 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=release -DCMAKE_C_COMPILER=/usr/bin/clang
 cmake --build build
 ```
 
-#### Physical GamePad through drcd (Linux)
+#### Physical GamePad through Barista (Linux)
 
-This prototype branch's physical GamePad integration uses the sibling `Barista` daemon.
-Cemu links only its local IPC client library; it no longer builds hostapd/DHCP
-helpers or performs pairing/network setup. Override `BARISTA_APPHOOK_PROJECT_DIR` if
-the Barista project is located elsewhere. See Barista's `README.md` and
-`COMPILING.md` for setup and packaging details. Run Cemu unprivileged. The client
-automatically uses Barista's default per-user endpoint,
-`/run/barista/media-<uid>.sock`; `BARISTA_MUG_SOCKET` remains an optional override
-for development.
+This branch's physical GamePad integration uses the separately installed
+`Barista` daemon. Cemu contains the AppHook socket client, but it does not build
+Barista, hostapd/DHCP helpers, or perform pairing and network setup. See
+[BARISTA_MOTION.md](BARISTA_MOTION.md) for the complete setup and the motion
+calibration controls. Run Cemu unprivileged. The client automatically uses
+Barista's default per-user endpoint, `/run/barista/media-<uid>.sock`;
+`BARISTA_MUG_SOCKET` remains an optional override for development.
 
 For a physical GamePad color-transition diagnostic, close any running Cemu and
 start it from the workspace root with:
