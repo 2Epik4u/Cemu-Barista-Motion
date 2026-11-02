@@ -19,6 +19,7 @@
 namespace {
 using Clock = std::chrono::steady_clock;
 constexpr size_t chunk = 16384, max_audio = 9600, frame_bytes = 864 * 480 * 3 / 2;
+constexpr size_t max_input_reports = 64;
 enum Type : uint32 { Video = 1, Idle = 2, Active = 3, Pcm = 4, Input = 5, Reject = 6 };
 
 struct LockInfo
@@ -118,7 +119,7 @@ public:
 	{
 		std::lock_guard l(m);
 		on = a;
-		if (!a) { audio.clear(); pending = {}; }
+		if (!a) { audio.clear(); pending = {}; input_report_queue.clear(); }
 	}
 	void rgb(std::vector<uint8> b, unsigned w, unsigned h, bool idle = false)
 	{
@@ -148,10 +149,28 @@ public:
 		r = in;
 		return true;
 	}
+	size_t drain_input_reports(std::vector<std::array<uint8, 128>>& reports)
+	{
+		std::lock_guard l(m);
+		if (!linked)
+		{
+			input_report_queue.clear();
+			return 0;
+		}
+		const size_t count = input_report_queue.size();
+		reports.reserve(reports.size() + count);
+		while (!input_report_queue.empty())
+		{
+			reports.emplace_back(std::move(input_report_queue.front()));
+			input_report_queue.pop_front();
+		}
+		return count;
+	}
 
 	uint64 get_frames_sent() const { return frames_sent.load(); }
 	uint64 get_audio_chunks_sent() const { return audio_chunks_sent.load(); }
 	uint64 get_input_reports_received() const { return input_reports_received.load(); }
+	uint64 get_connection_revision() const { return connection_revision.load(); }
 	sint64 get_last_input_ms() const
 	{
 		std::lock_guard l(m);
@@ -197,7 +216,9 @@ private:
 		{
 			std::lock_guard z(m);
 			rejection_reason.clear();
+			input_report_queue.clear();
 		}
+		connection_revision++;
 		linked = true;
 		uint32 id = 0;
 		uint64 sent_logo = 0;
@@ -260,6 +281,9 @@ private:
 					{
 						std::lock_guard z(m);
 						std::copy_n(b.data() + 16, 128, in.begin());
+						input_report_queue.emplace_back(in);
+						while (input_report_queue.size() > max_input_reports)
+							input_report_queue.pop_front();
 						input_time = Clock::now();
 						input_reports_received++;
 					}
@@ -271,6 +295,10 @@ private:
 			}
 		}
 		linked = false;
+		{
+			std::lock_guard z(m);
+			input_report_queue.clear();
+		}
 		close(fd);
 	}
 	void run()
@@ -322,13 +350,14 @@ private:
 	}
 
 	std::atomic_bool stopping = false, linked = false;
-	std::atomic<uint64> frames_sent = 0, audio_chunks_sent = 0, input_reports_received = 0;
+	std::atomic<uint64> frames_sent = 0, audio_chunks_sent = 0, input_reports_received = 0, connection_revision = 0;
 	std::jthread worker;
 	std::string path;
 	std::string rejection_reason;
 	mutable std::mutex m;
 	Rgb pending, logo;
 	std::deque<sint16> audio;
+	std::deque<std::array<uint8, 128>> input_report_queue;
 	std::array<uint8, 128> in{};
 	Clock::time_point input_time{};
 	bool on = false;
@@ -574,6 +603,26 @@ bool ReadInput(std::array<uint8, 128>& r)
 	if (auto b = bridge.load()) return b->input(r);
 #endif
 	return false;
+}
+
+size_t DrainInputReports(std::vector<std::array<uint8, 128>>& reports)
+{
+#if BOOST_OS_LINUX
+	if (!s_enabled.load())
+		return 0;
+	if (auto b = bridge.load())
+		return b->drain_input_reports(reports);
+#endif
+	return 0;
+}
+
+uint64 GetConnectionRevision()
+{
+#if BOOST_OS_LINUX
+	if (auto b = bridge.load())
+		return b->get_connection_revision();
+#endif
+	return 0;
 }
 
 bool ReadTouch(float& x, float& y)

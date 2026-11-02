@@ -17,6 +17,8 @@ public:
 
 	bool connect() override;
 	bool is_connected() override;
+	bool has_motion() override { return true; }
+	MotionSample get_motion_sample() override;
 
 	std::string get_button_name(uint64 button) const override;
 

@@ -3,6 +3,7 @@
 WiiUGamePadController::WiiUGamePadController(size_t index)
 	: base_type(fmt::format("{}", index), fmt::format("Wii U GamePad {}", index + 1)), m_index(index)
 {
+	m_settings.motion = true;
 }
 
 bool WiiUGamePadController::connect()
@@ -13,6 +14,13 @@ bool WiiUGamePadController::connect()
 bool WiiUGamePadController::is_connected()
 {
 	return m_provider->is_connected(m_index);
+}
+
+MotionSample WiiUGamePadController::get_motion_sample()
+{
+	if (!is_connected())
+		return {};
+	return m_provider->get_motion_sample(m_index);
 }
 
 std::string WiiUGamePadController::get_button_name(uint64 button) const
