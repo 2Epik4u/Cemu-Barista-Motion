@@ -1,0 +1,85 @@
+name: Build and publish Barista Motion AppImage
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "barista-motion-v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: barista-motion-appimage-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  VCPKG_ROOT: "${{ github.workspace }}/dependencies/vcpkg"
+  VCPKG_BINARY_SOURCES: clear
+  VCPKG_FORCE_DOWNLOADED_BINARIES: true
+
+jobs:
+  appimage-x86_64:
+    name: AppImage x86_64
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y \
+            appstream clang-15 cmake freeglut3-dev libbluetooth-dev \
+            libgcrypt20-dev libglm-dev libgtk-3-dev libpulse-dev \
+            libsecret-1-dev libsystemd-dev libudev-dev nasm ninja-build
+
+      - name: Bootstrap vcpkg
+        run: bash ./dependencies/vcpkg/bootstrap-vcpkg.sh
+
+      - name: Configure
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=release \
+            -DCMAKE_C_COMPILER=/usr/bin/clang-15 \
+            -DCMAKE_CXX_COMPILER=/usr/bin/clang++-15 \
+            -DCMAKE_MAKE_PROGRAM=/usr/bin/ninja
+
+      - name: Build Cemu
+        run: cmake --build build --parallel 2
+
+      - name: Build AppImage and checksum
+        env:
+          APPIMAGE_VERSION: "${{ github.ref_name }}"
+          DEPLOY_GTK_VERSION: "3"
+          LD_LIBRARY_PATH: "/usr/local/lib:"
+        run: |
+          mv bin/Cemu_release bin/Cemu
+          dist/linux/appimage.sh X64
+
+          appimage="$(find artifacts -maxdepth 1 -type f -name '*.AppImage' -print -quit)"
+          test -n "$appimage"
+          release_name="Cemu-Barista-Motion-${GITHUB_REF_NAME}-x86_64.AppImage"
+          mv "$appimage" "artifacts/$release_name"
+          (cd artifacts && sha256sum "$release_name" > "$release_name.sha256")
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: Cemu-Barista-Motion-${{ github.ref_name }}-x86_64
+          path: artifacts/*
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: "${{ github.token }}"
+        run: |
+          gh release create "$GITHUB_REF_NAME" artifacts/* \
+            --verify-tag \
+            --title "Cemu Barista Motion $GITHUB_REF_NAME" \
+            --notes-file RELEASE_NOTES.md

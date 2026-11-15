@@ -1,4 +1,5 @@
 #include "Cafe/OS/common/OSCommon.h"
+#include "Common/BaristaAppHook.h"
 #include "WindowSystem.h"
 #include "Cafe/GameProfile/GameProfile.h"
 #include "Cafe/HW/Espresso/Interpreter/PPCInterpreterInternal.h"
@@ -920,6 +921,7 @@ namespace CafeSystem
 		PPCTimer_waitForInit();
 		// start system
 		sSystemRunning = true;
+		BaristaAppHook::SetGameActive(true);
 		WindowSystem::NotifyGameLoaded();
 		std::thread t(_LaunchTitleThread);
 		t.detach();
@@ -1088,6 +1090,7 @@ namespace CafeSystem
 		DestroyMemorySpace();
 		LaunchSettings::ClearCosArgstr();
 		sSystemRunning = false;
+		BaristaAppHook::SetGameActive(false);
 	}
 
 	/* Virtual mlc storage */

@@ -6,6 +6,9 @@
 
 #include <imgui.h>
 #include "imgui/imgui_extension.h"
+#include "imgui/DrcdOverlay.h"
+#include "Common/BaristaAppHook.h"
+#include "Cafe/OS/libs/swkbd/swkbd.h"
 #include <png.h>
 
 #include "config/ActiveSettings.h"
@@ -22,6 +25,34 @@ Renderer::Renderer(RendererAPI api)
 }
 
 Renderer::~Renderer() = default;
+
+void DrcdOverlay::PublishKeyboard(bool mainWindow)
+{
+	// Mirror the already evaluated main-window keyboard UI, without running
+	// swkbd input callbacks twice or depending on fresh guest DRC scanouts.
+	if (!mainWindow) return;
+	static bool wasPublished = false;
+	if (!swkbd_hasKeyboardInputHook())
+	{
+		if (wasPublished) cemuLog_log(LogType::Force, "drcd keyboard overlay ended; resuming GamePad scanout");
+		wasPublished = false;
+		return;
+	}
+	if (!BaristaAppHook::WantsFrame()) return;
+	auto* data = ImGui::GetDrawData();
+	if (!data) return;
+	unsigned char* alpha = nullptr;
+	int width = 0, height = 0;
+	auto* atlas = ImGui::GetIO().Fonts;
+	atlas->GetTexDataAsAlpha8(&alpha, &width, &height);
+	auto rgb = Rasterize(*data, atlas->TexID, alpha, width, height);
+	if (!rgb.empty())
+	{
+		if (!wasPublished) cemuLog_log(LogType::Force, "drcd keyboard overlay active");
+		wasPublished = true;
+		BaristaAppHook::SubmitFrame(std::move(rgb), 864, 480);
+	}
+}
 
 bool Renderer::GetVRAMInfo(int& usageInMB, int& totalInMB) const
 {

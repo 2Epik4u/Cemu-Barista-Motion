@@ -36,7 +36,11 @@ chmod +x AppDir/usr/bin/Cemu
 
 cp /usr/lib/"${CPU_ARCH}"-linux-gnu/{libsepol.so.1,libffi.so.7,libpcre.so.3,libGLU.so.1,libthai.so.0} AppDir/usr/lib
 
-export UPD_INFO="gh-releases-zsync|cemu-project|Cemu|ci|Cemu.AppImage.zsync"
+if [[ -n "${APPIMAGE_UPDATE_INFORMATION:-}" ]]; then
+	export UPD_INFO="${APPIMAGE_UPDATE_INFORMATION}"
+else
+	unset UPD_INFO
+fi
 export NO_STRIP=1
 ./linuxdeploy-"${CPU_ARCH}".AppImage --appimage-extract-and-run \
   --appdir="${GITHUB_WORKSPACE}"/AppDir/ \
@@ -46,7 +50,9 @@ export NO_STRIP=1
   --plugin gtk \
   --plugin checkrt
 
-if ! GITVERSION="$(git rev-parse --short HEAD 2>/dev/null)"; then
+if [[ -n "${APPIMAGE_VERSION:-}" ]]; then
+	GITVERSION="${APPIMAGE_VERSION}"
+elif ! GITVERSION="$(git rev-parse --short HEAD 2>/dev/null)"; then
 	GITVERSION=experimental
 fi
 echo "Cemu Version Cemu-${GITVERSION}"

@@ -1,4 +1,5 @@
 #include "Cafe/OS/libs/snd_core/ax.h"
+#include "Common/BaristaAppHook.h"
 #include "Cafe/OS/libs/snd_core/ax_internal.h"
 #include "audio/IAudioAPI.h"
 #include "config/CemuConfig.h"
@@ -315,6 +316,7 @@ namespace snd_core
 			outputChannel[i] = _swapEndianS16(sampleData[i]);
 		}
 
+		BaristaAppHook::SubmitAudio(std::span<const sint16>(outputChannel, sampleCount), channels);
 		tempDRCAudioBlockCounter++;
 		if (tempDRCAudioBlockCounter == AX_FRAMES_PER_GROUP)
 		{
