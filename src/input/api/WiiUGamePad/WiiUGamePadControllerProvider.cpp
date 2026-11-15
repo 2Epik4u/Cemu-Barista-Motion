@@ -239,6 +239,48 @@ BaristaAxisRotation ReadBaristaAxisRotation()
 	return rotation;
 }
 
+
+struct BaristaPitchOffset
+{
+	float sin = 0.0f;
+	float cos = 1.0f;
+	bool active = false;
+};
+
+const BaristaPitchOffset& ReadBaristaPitchOffset()
+{
+	static const BaristaPitchOffset offset = [] {
+		BaristaPitchOffset result;
+		const char* s = std::getenv("CEMU_BARISTA_PITCH_OFFSET");
+		if (!s || !*s) return result;
+		char* end = nullptr;
+		const float degrees = std::strtof(s, &end);
+		if (s == end || *end != '\0' || !std::isfinite(degrees)) return result;
+		const float radians = std::clamp(degrees, -90.0f, 90.0f) *
+		(std::numbers::pi_v<float> / 180.0f);
+		result.sin = std::sin(radians);
+		result.cos = std::cos(radians);
+		result.active = degrees != 0.0f;
+		return result;
+	}();
+	return offset;
+}
+
+constexpr void ApplyBaristaPitchOffset(std::array<float, 3>& v, float sinA, float cosA)
+{
+	const float y = v[1];
+	const float z = v[2];
+	v[1] = y * cosA - z * sinA;
+	v[2] = y * sinA + z * cosA;
+}
+constexpr bool ValidateBaristaPitchOffset()
+{
+	std::array<float, 3> v{4.f, 0.f, -1.f};
+	ApplyBaristaPitchOffset(v, 1.f, 0.f); // +90 degrees
+	return v == std::array<float, 3>{4.f, 1.f, 0.f};
+}
+static_assert(ValidateBaristaPitchOffset());
+
 constexpr bool ValidateMotionDecoder()
 {
 	std::array<uint8, 128> report{};
@@ -372,6 +414,11 @@ MotionSample WiiUGamePadControllerProvider::get_motion_sample(size_t index)
 			InvertBaristaRoll(gyro, accel);
 		if (rotation != BaristaAxisRotation::Original && ReadBaristaInvertYaw())
 			InvertBaristaYaw(gyro);
+		if (const auto& offset = ReadBaristaPitchOffset(); offset.active)
+		{
+			ApplyBaristaPitchOffset(gyro, offset.sin, offset.cos);
+			ApplyBaristaPitchOffset(accel, offset.sin, offset.cos);
+		}
 		m_motion_handler.processMotionSample(deltaTime,
 			gyro[0] * gain, gyro[1] * gain, gyro[2] * gain,
 			accel[0], accel[1], accel[2]);
