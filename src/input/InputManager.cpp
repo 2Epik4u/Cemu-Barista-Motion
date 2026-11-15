@@ -16,6 +16,7 @@
 #include "input/api/Keyboard/KeyboardControllerProvider.h"
 #include "input/api/DSU/DSUControllerProvider.h"
 #include "input/api/GameCube/GameCubeControllerProvider.h"
+#include "input/api/WiiUGamePad/WiiUGamePadControllerProvider.h"
 
 #include "config/ActiveSettings.h"
 #include "input/ControllerFactory.h"
